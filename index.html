@@ -218,7 +218,12 @@
       const notice = document.querySelector('#favorite-message');
       if (!favoriteUserId) { notice.textContent = '로그인하면 즐겨찾기를 저장할 수 있어요'; return; }
       if (favoriteWriteBusy || favoritesLoading || !detailRecipe || !authClient) return;
-      if (favoritesError) { await loadFavorites(); if (favoritesError) return; }
+      const requestedUser = favoriteUserId;
+      const requestedRecipe = detailRecipe;
+      if (favoritesError) {
+        await loadFavorites();
+        if (favoritesError || favoriteUserId !== requestedUser || detailRecipe !== requestedRecipe || favoriteWriteBusy) return;
+      }
       const userId = favoriteUserId; const recipe = detailRecipe; const key = String(recipe.id); const removing = favoriteIds.has(key);
       favoriteWriteBusy = true; updateFavoriteButton(); notice.textContent = removing ? '삭제 중입니다…' : '저장 중입니다…';
       try {
