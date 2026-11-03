@@ -19,6 +19,7 @@
     <section class="hero" aria-labelledby="title"><div><p class="eyebrow">SEASONAL TABLE</p><h1>지금 가장 맛있는 계절을,<br><em>오늘의 식탁에.</em></h1><p class="intro">매일 하는 메뉴 고민, 제철 재료에서 시작해 보세요.<br>계절에 어울리는 한 끼를 찾아드릴게요.</p></div><div class="month-control"><label for="month">어느 달의 식탁을 차려볼까요?</label><select id="month" aria-label="제철 재료를 확인할 월"></select></div></section>
     <section class="ingredients" aria-labelledby="ingredients-title"><div class="section-head"><h2 id="ingredients-title">이달의 제철 재료</h2><span class="small-label">재료를 선택해 보세요</span></div><div id="ingredients" class="ingredient-list" aria-busy="true">재료를 불러오는 중입니다.</div></section>
     <section aria-labelledby="recipes-title"><div class="results-head"><div><h2 id="recipes-title">오늘의 메뉴를 골라보세요</h2><p id="description">제철 재료를 고르면 어울리는 요리를 보여드려요.</p></div><span id="count" class="count"></span></div><div id="recipes" class="grid" aria-live="polite" aria-busy="true"><div class="message">제철 식탁을 준비하고 있어요.</div></div></section>
+    <section id="extra-section" aria-labelledby="extra-title" hidden><div class="results-head"><div><h2 id="extra-title">오늘은 이런 메뉴 어때요?</h2><p id="extra-description"></p></div><span id="extra-count" class="count"></span></div><div id="extra-recipes" class="grid"></div></section>
   </main>
   <footer><span class="footer-brand">오늘 뭐먹지? · 계절을 담은 한 끼</span><span>제철의 맛으로 채우는, 소소하고 건강한 일상.</span></footer>
   <dialog id="recipe-dialog" aria-labelledby="detail-title">
@@ -98,6 +99,28 @@
       }
       if (!names.length) ingredientList.textContent = '이달에 등록된 제철 재료가 없습니다.';
       renderRecipes();
+      renderExtraRecipes();
+    }
+    function pickExtraRecipes(recipes, month) {
+      const unique = [...new Map(recipes.map(recipe => [recipe.id ?? recipe.name, recipe])).values()];
+      const monthly = unique.filter(recipe => Array.isArray(recipe.months) && recipe.months.includes(month));
+      if (monthly.length > 15) return { monthlyCount: monthly.length, extras: [] };
+      const monthlyIds = new Set(monthly.map(recipe => recipe.id ?? recipe.name));
+      const pool = unique.filter(recipe => !monthlyIds.has(recipe.id ?? recipe.name));
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return { monthlyCount: monthly.length, extras: pool.slice(0, 5) };
+    }
+    function renderExtraRecipes() {
+      const month = Number(monthSelect.value);
+      const { monthlyCount, extras } = pickExtraRecipes(data.recipes, month);
+      document.querySelector('#extra-section').hidden = extras.length === 0;
+      document.querySelector('#extra-description').textContent = `${month}월 추천 메뉴가 ${monthlyCount}개라, 다른 달의 메뉴도 랜덤으로 골라봤어요.`;
+      document.querySelector('#extra-count').textContent = `추가 추천 ${extras.length}개`;
+      const target = document.querySelector('#extra-recipes'); target.replaceChildren();
+      renderCards(extras, target);
     }
     function renderRecipes() {
       count.replaceChildren();
@@ -115,6 +138,9 @@
       count.append('총 ', total, '개의 메뉴');
       recipeGrid.replaceChildren();
       if (!recipes.length) { message('아직 준비된 레시피가 없어요', '선택한 월과 재료에 맞는 레시피가 없습니다. 다른 재료를 선택해 보세요.'); return; }
+      renderCards(recipes, recipeGrid);
+    }
+    function renderCards(recipes, target) {
       for (const recipe of recipes) {
         const card = document.createElement('article'); card.className = 'card';
         card.tabIndex = 0; card.setAttribute('role', 'button'); card.setAttribute('aria-haspopup', 'dialog'); card.setAttribute('aria-label', `${recipe.name} 레시피 보기`);
@@ -133,7 +159,7 @@
         if (typeof recipe.kcal === 'number') { const kcal = document.createElement('span'); kcal.textContent = `${Math.round(recipe.kcal)} kcal`; nutrition.append(kcal); }
         if (typeof recipe.sodium === 'number') { const sodium = document.createElement('span'); sodium.textContent = `나트륨 ${Math.round(recipe.sodium)} mg`; nutrition.append(sodium); }
         if (nutrition.childNodes.length) body.append(nutrition);
-        card.append(photo, body); recipeGrid.append(card);
+        card.append(photo, body); target.append(card);
       }
     }
     async function loadData() {
